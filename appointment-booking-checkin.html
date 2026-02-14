@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Booking & Pre-Visit Check-In</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // Lucide React icons as inline SVG components
+        const CheckCircle = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        );
+
+        const ArrowRight = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+        );
+
+        const Shield = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+        );
+
+        const CreditCard = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
+        );
+
+        const User = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+        );
+
+        const Calendar = ({ size = 24, color = 'currentColor' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        );
+
+        function PediatricCheckIn() {
+          const [step, setStep] = useState(0);
+          const [requiresCopay, setRequiresCopay] = useState(true);
+          const [booking, setBooking] = useState({
+            selectedChild: null,
+            reason: null,
+            provider: null,
+            date: null,
+            time: null
+          });
+          const [formData, setFormData] = useState({
+            insurance: {
+              provider: 'Blue Cross Blue Shield',
+              memberId: 'ABC123456789',
+              groupNumber: 'GRP-0012345'
+            },
+            child: {
+              name: 'Emma Johnson',
+              dob: '03/15/2018',
+              allergies: 'Penicillin'
+            },
+            guardian: {
+              name: 'Sarah Johnson',
+              phone: '(555) 123-4567',
+              email: 'sarah.j@email.com'
+            },
+            appointment: {
+              date: 'March 18, 2026',
+              time: '2:30 PM',
+              provider: 'Dr. Martinez',
+              reason: 'Annual Checkup'
+            }
+          });
+
+          const steps = [
+            { id: 'start', title: 'Start', icon: Calendar },
+            { id: 'select-child', title: 'Patient', icon: User },
+            { id: 'reason', title: 'Visit Type', icon: Calendar },
+            { id: 'provider', title: 'Provider', icon: User },
+            { id: 'datetime', title: 'Date & Time', icon: Calendar },
+            { id: 'insurance', title: 'Insurance', icon: Shield },
+            { id: 'copay-review', title: 'Co-pay', icon: CreditCard },
+            { id: 'details', title: 'Confirm', icon: User },
+            { id: 'complete', title: 'Complete', icon: CheckCircle }
+          ];
+
+          const nextStep = () => setStep(Math.min(step + 1, steps.length - 1));
+          const prevStep = () => setStep(Math.max(step - 1, 0));
+
+          return (
+            <div style={{
+              minHeight: '100vh',
+              background: 'linear-gradient(135deg, #fef3f0 0%, #fdf8f6 50%, #f0f8ff 100%)',
+              fontFamily: '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+              padding: '20px'
+            }}>
+              <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:wght@600;700&display=swap');
+                
+                * {
+                  box-sizing: border-box;
+                }
+                
+                @keyframes slideInUp {
+                  from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+                
+                @keyframes fadeIn {
+                  from { opacity: 0; }
+                  to { opacity: 1; }
+                }
+                
+                @keyframes checkmark {
+                  0% {
+                    transform: scale(0);
+                    opacity: 0;
+                  }
+                  50% {
+                    transform: scale(1.2);
+                  }
+                  100% {
+                    transform: scale(1);
+                    opacity: 1;
+                  }
+                }
+                
+                .animate-in {
+                  animation: slideInUp 0.5s ease-out;
+                }
+                
+                .fade-in {
+                  animation: fadeIn 0.3s ease-out;
+                }
+              `}</style>
+
+              <div style={{
+                maxWidth: '600px',
+                margin: '0 auto',
+                paddingTop: '40px'
+              }}>
+                {/* Header */}
+                <div style={{
+                  textAlign: 'center',
+                  marginBottom: '40px',
+                  animation: 'fadeIn 0.6s ease-out'
+                }}>
+                  <h1 style={{
+                    fontFamily: '"Fraunces", serif',
+                    fontSize: '2.5rem',
+                    color: '#2c5f7d',
+                    margin: '0 0 10px 0',
+                    fontWeight: 700
+                  }}>
+                    Appointment Booking & Pre-Visit Check-In
+                  </h1>
+                  <p style={{
+                    color: '#64748b',
+                    fontSize: '1.1rem',
+                    margin: 0
+                  }}>
+                    Complete your appointment in a few simple steps
+                  </p>
+                </div>
+
+                {/* Progress Indicator */}
+                <div style={{
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  animation: 'fadeIn 0.6s ease-out 0.1s backwards'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    position: 'relative'
+                  }}>
+                    {steps.map((s, idx) => {
+                      const Icon = s.icon;
+                      const isActive = idx === step;
+                      const isComplete = idx < step;
+                      
+                      return (
+                        <div key={s.id} style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          flex: 1,
+                          position: 'relative',
+                          zIndex: 2
+                        }}>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            background: isComplete ? '#4ade80' : isActive ? '#3b82f6' : '#e2e8f0',
+                            color: isComplete || isActive ? 'white' : '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.3s ease',
+                            boxShadow: isActive ? '0 4px 12px rgba(59,130,246,0.3)' : 'none',
+                            transform: isActive ? 'scale(1.1)' : 'scale(1)'
+                          }}>
+                            <Icon size={20} />
+                          </div>
+                          <div style={{
+                            fontSize: '0.65rem',
+                            marginTop: '6px',
+                            color: isActive ? '#1e293b' : '#94a3b8',
+                            fontWeight: isActive ? 600 : 400,
+                            textAlign: 'center',
+                            maxWidth: '60px'
+                          }}>
+                            {s.title}
+                          </div>
+                          {idx < steps.length - 1 && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '20px',
+                              left: '50%',
+                              width: '100%',
+                              height: '2px',
+                              background: isComplete ? '#4ade80' : '#e2e8f0',
+                              transition: 'background 0.3s ease',
+                              zIndex: -1
+                            }} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Content Card */}
+                <div className="animate-in" key={step} style={{
+                  background: 'white',
+                  borderRadius: '20px',
+                  padding: '40px',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+                  minHeight: '400px'
+                }}>
+                  {step === 0 && <StartBookingStep onNext={nextStep} />}
+                  {step === 1 && <SelectChildStep booking={booking} setBooking={setBooking} onNext={nextStep} onBack={prevStep} />}
+                  {step === 2 && <ReasonStep booking={booking} setBooking={setBooking} onNext={nextStep} onBack={prevStep} />}
+                  {step === 3 && <ProviderStep booking={booking} setBooking={setBooking} onNext={nextStep} onBack={prevStep} />}
+                  {step === 4 && <DateTimeStep booking={booking} setBooking={setBooking} onNext={nextStep} onBack={prevStep} formData={formData} setFormData={setFormData} />}
+                  {step === 5 && <InsuranceStep formData={formData} onNext={nextStep} onBack={prevStep} />}
+                  {step === 6 && <CopayReviewStep onNext={nextStep} onBack={prevStep} setRequiresCopay={setRequiresCopay} />}
+                  {step === 7 && <DetailsStep formData={formData} setFormData={setFormData} onNext={nextStep} onBack={prevStep} />}
+                  {step === 8 && <CompleteStep formData={formData} requiresCopay={requiresCopay} />}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // All component functions follow...
+        function StartBookingStep({ onNext }) {
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '2.2rem',
+                color: '#1e293b',
+                marginBottom: '16px'
+              }}>
+                Book an Appointment
+              </h2>
+              
+              <p style={{
+                color: '#64748b',
+                fontSize: '1.1rem',
+                lineHeight: 1.6,
+                marginBottom: '32px'
+              }}>
+                Schedule a visit for your child in just a few easy steps.
+              </p>
+
+              <div style={{
+                background: '#f0f9ff',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '32px',
+                borderLeft: '4px solid #0284c7'
+              }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  color: '#0c4a6e',
+                  marginBottom: '12px',
+                  fontWeight: 600
+                }}>
+                  What you'll need:
+                </h3>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  color: '#075985'
+                }}>
+                  <li style={{ marginBottom: '8px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>📋</span>
+                    Insurance information
+                  </li>
+                  <li style={{ marginBottom: '8px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>💳</span>
+                    Payment method for co-pay (optional)
+                  </li>
+                  <li style={{ paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>⏱️</span>
+                    About 3-5 minutes
+                  </li>
+                </ul>
+              </div>
+
+              <button onClick={onNext} style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '1.05rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+              }}>
+                Start Booking <ArrowRight size={20} />
+              </button>
+            </div>
+          );
+        }
+
+        function SelectChildStep({ booking, setBooking, onNext, onBack }) {
+          const children = [
+            { id: 1, name: 'Emma Johnson', dob: '03/15/2018', age: 7 },
+            { id: 2, name: 'Noah Johnson', dob: '08/22/2020', age: 5 }
+          ];
+
+          const handleSelectChild = (child) => {
+            setBooking({ ...booking, selectedChild: child });
+            setTimeout(() => onNext(), 300);
+          };
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                Who is this appointment for?
+              </h2>
+
+              <div style={{ marginBottom: '24px' }}>
+                {children.map((child) => (
+                  <button
+                    key={child.id}
+                    onClick={() => handleSelectChild(child)}
+                    style={{
+                      width: '100%',
+                      background: booking.selectedChild?.id === child.id ? '#eff6ff' : 'white',
+                      border: booking.selectedChild?.id === child.id ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: '12px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          color: '#1e293b',
+                          marginBottom: '4px'
+                        }}>
+                          {child.name}
+                        </div>
+                        <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                          DOB: {child.dob} • Age {child.age}
+                        </div>
+                      </div>
+                      {booking.selectedChild?.id === child.id && (
+                        <CheckCircle size={24} color="#3b82f6" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={onBack} style={{
+                background: 'white',
+                color: '#64748b',
+                border: '2px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}>
+                Back
+              </button>
+            </div>
+          );
+        }
+
+        function ReasonStep({ booking, setBooking, onNext, onBack }) {
+          const reasons = [
+            { id: 'annual', label: 'Annual Checkup', description: 'Well-child visit', icon: '🩺' },
+            { id: 'sick', label: 'Sick Visit', description: 'Illness or symptoms', icon: '🤒' },
+            { id: 'followup', label: 'Follow-up', description: 'Follow-up appointment', icon: '📋' },
+            { id: 'vaccine', label: 'Vaccination', description: 'Immunizations', icon: '💉' }
+          ];
+
+          const handleSelectReason = (reason) => {
+            setBooking({ ...booking, reason: reason });
+            setTimeout(() => onNext(), 300);
+          };
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                What's the reason for this visit?
+              </h2>
+
+              <div style={{ marginBottom: '24px' }}>
+                {reasons.map((reason) => (
+                  <button
+                    key={reason.id}
+                    onClick={() => handleSelectReason(reason)}
+                    style={{
+                      width: '100%',
+                      background: booking.reason?.id === reason.id ? '#eff6ff' : 'white',
+                      border: booking.reason?.id === reason.id ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: '12px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ fontSize: '2rem' }}>{reason.icon}</div>
+                        <div>
+                          <div style={{
+                            fontSize: '1.1rem',
+                            fontWeight: 600,
+                            color: '#1e293b',
+                            marginBottom: '4px'
+                          }}>
+                            {reason.label}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                            {reason.description}
+                          </div>
+                        </div>
+                      </div>
+                      {booking.reason?.id === reason.id && (
+                        <CheckCircle size={24} color="#3b82f6" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={onBack} style={{
+                background: 'white',
+                color: '#64748b',
+                border: '2px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}>
+                Back
+              </button>
+            </div>
+          );
+        }
+
+        function ProviderStep({ booking, setBooking, onNext, onBack }) {
+          const providers = [
+            { id: 1, name: 'Dr. Sarah Martinez', specialty: 'Pediatrician', available: 'Today', image: '👩‍⚕️' },
+            { id: 2, name: 'Dr. James Chen', specialty: 'Pediatrician', available: 'Tomorrow', image: '👨‍⚕️' },
+            { id: 3, name: 'No Preference', specialty: 'First available', available: 'Flexible', image: '⏱️' }
+          ];
+
+          const handleSelectProvider = (provider) => {
+            setBooking({ ...booking, provider: provider });
+            setTimeout(() => onNext(), 300);
+          };
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                Choose your preferred provider
+              </h2>
+
+              <div style={{ marginBottom: '24px' }}>
+                {providers.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => handleSelectProvider(provider)}
+                    style={{
+                      width: '100%',
+                      background: booking.provider?.id === provider.id ? '#eff6ff' : 'white',
+                      border: booking.provider?.id === provider.id ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: '12px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ fontSize: '2.5rem' }}>{provider.image}</div>
+                        <div>
+                          <div style={{
+                            fontSize: '1.1rem',
+                            fontWeight: 600,
+                            color: '#1e293b',
+                            marginBottom: '4px'
+                          }}>
+                            {provider.name}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '2px' }}>
+                            {provider.specialty}
+                          </div>
+                          <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 500 }}>
+                            Available: {provider.available}
+                          </div>
+                        </div>
+                      </div>
+                      {booking.provider?.id === provider.id && (
+                        <CheckCircle size={24} color="#3b82f6" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={onBack} style={{
+                background: 'white',
+                color: '#64748b',
+                border: '2px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '16px 24px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}>
+                Back
+              </button>
+            </div>
+          );
+        }
+
+        function DateTimeStep({ booking, setBooking, onNext, onBack, formData, setFormData }) {
+          const [selectedDate, setSelectedDate] = useState(null);
+          const [selectedTime, setSelectedTime] = useState(null);
+
+          const dates = [
+            { id: 1, day: 'Mon', date: '17', full: 'March 17, 2026' },
+            { id: 2, day: 'Tue', date: '18', full: 'March 18, 2026' },
+            { id: 3, day: 'Wed', date: '19', full: 'March 19, 2026' },
+            { id: 4, day: 'Thu', date: '20', full: 'March 20, 2026' },
+            { id: 5, day: 'Fri', date: '21', full: 'March 21, 2026' }
+          ];
+
+          const times = [
+            '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
+            '11:00 AM', '11:30 AM', '1:00 PM', '1:30 PM',
+            '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM'
+          ];
+
+          const handleContinue = () => {
+            setBooking({ ...booking, date: selectedDate, time: selectedTime });
+            setFormData({
+              ...formData,
+              child: {
+                name: booking.selectedChild.name,
+                dob: booking.selectedChild.dob,
+                allergies: 'Penicillin'
+              },
+              appointment: {
+                date: selectedDate.full,
+                time: selectedTime,
+                provider: booking.provider.name,
+                reason: booking.reason.label
+              }
+            });
+            onNext();
+          };
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                Select date and time
+              </h2>
+
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{
+                  fontSize: '0.9rem',
+                  color: '#64748b',
+                  marginBottom: '12px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Choose a Date
+                </h3>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                  {dates.map((date) => (
+                    <button
+                      key={date.id}
+                      onClick={() => setSelectedDate(date)}
+                      style={{
+                        flex: 1,
+                        background: selectedDate?.id === date.id ? '#3b82f6' : 'white',
+                        color: selectedDate?.id === date.id ? 'white' : '#1e293b',
+                        border: selectedDate?.id === date.id ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '16px 8px',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8rem', marginBottom: '4px', opacity: 0.8 }}>
+                        {date.day}
+                      </div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>
+                        {date.date}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedDate && (
+                  <div style={{ animation: 'slideInUp 0.3s ease-out' }}>
+                    <h3 style={{
+                      fontSize: '0.9rem',
+                      color: '#64748b',
+                      marginBottom: '12px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Choose a Time
+                    </h3>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '8px'
+                    }}>
+                      {times.map((time) => (
+                        <button
+                          key={time}
+                          onClick={() => setSelectedTime(time)}
+                          style={{
+                            background: selectedTime === time ? '#10b981' : 'white',
+                            color: selectedTime === time ? 'white' : '#1e293b',
+                            border: selectedTime === time ? '2px solid #10b981' : '2px solid #e2e8f0',
+                            borderRadius: '8px',
+                            padding: '12px 8px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 500,
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={onBack} style={{
+                  background: 'white',
+                  color: '#64748b',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px 24px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}>
+                  Back
+                </button>
+                
+                <button
+                  onClick={handleContinue}
+                  disabled={!selectedDate || !selectedTime}
+                  style={{
+                    background: selectedDate && selectedTime 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+                      : '#e2e8f0',
+                    color: selectedDate && selectedTime ? 'white' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: selectedDate && selectedTime ? 'pointer' : 'not-allowed',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: selectedDate && selectedTime ? '0 4px 12px rgba(59,130,246,0.3)' : 'none'
+                  }}
+                >
+                  Continue <ArrowRight size={20} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        function InsuranceStep({ formData, onNext, onBack }) {
+          const [verified, setVerified] = useState(false);
+
+          const handleVerify = () => {
+            setVerified(true);
+          };
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                Verify Insurance Information
+              </h2>
+
+              <div style={{ marginBottom: '24px' }}>
+                <InfoField label="Insurance Provider" value={formData.insurance.provider} />
+                <InfoField label="Member ID" value={formData.insurance.memberId} />
+                <InfoField label="Group Number" value={formData.insurance.groupNumber} />
+              </div>
+
+              {!verified ? (
+                <div style={{
+                  background: '#fef3c7',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '24px',
+                  borderLeft: '4px solid #f59e0b'
+                }}>
+                  <p style={{ margin: 0, color: '#92400e', fontSize: '0.95rem' }}>
+                    Please confirm this information is current and accurate
+                  </p>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#d1fae5',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '24px',
+                  borderLeft: '4px solid #10b981',
+                  animation: 'slideInUp 0.3s ease-out'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle size={20} color="#059669" />
+                    <p style={{ margin: 0, color: '#065f46', fontSize: '0.95rem', fontWeight: 500 }}>
+                      Insurance verified successfully
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={onBack} style={{
+                  background: 'white',
+                  color: '#64748b',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px 24px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}>
+                  Back
+                </button>
+                
+                {!verified ? (
+                  <button onClick={handleVerify} style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    flex: 1,
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+                  }}>
+                    Verify Insurance
+                  </button>
+                ) : (
+                  <button onClick={onNext} style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+                  }}>
+                    Continue <ArrowRight size={20} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        function CopayReviewStep({ onNext, onBack, setRequiresCopay }) {
+          const [paymentChoice, setPaymentChoice] = useState(null);
+          const estimatedCopay = 25;
+
+          const handleChoice = (choice) => {
+            setPaymentChoice(choice);
+            if (choice === 'pay-now') {
+              setRequiresCopay(true);
+              setTimeout(() => {
+                setShowPayment(true);
+              }, 300);
+            } else {
+              setRequiresCopay(false);
+              setTimeout(() => {
+                onNext();
+              }, 800);
+            }
+          };
+
+          const [showPayment, setShowPayment] = useState(false);
+          const [isPaid, setIsPaid] = useState(false);
+
+          const handlePaymentSubmit = () => {
+            setIsPaid(true);
+            setTimeout(() => onNext(), 1500);
+          };
+
+          if (showPayment && !isPaid) {
+            return (
+              <div className="fade-in">
+                <h2 style={{
+                  fontFamily: '"Fraunces", serif',
+                  fontSize: '1.8rem',
+                  color: '#1e293b',
+                  marginBottom: '24px'
+                }}>
+                  Pay Co-pay
+                </h2>
+
+                <div style={{
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  marginBottom: '24px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: '0.9rem',
+                    color: '#64748b',
+                    marginBottom: '8px'
+                  }}>
+                    Estimated Co-pay
+                  </div>
+                  <div style={{
+                    fontSize: '3rem',
+                    fontWeight: 700,
+                    color: '#1e293b',
+                    fontFamily: '"Fraunces", serif'
+                  }}>
+                    ${estimatedCopay}.00
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.9rem',
+                    color: '#475569',
+                    marginBottom: '8px',
+                    fontWeight: 500
+                  }}>
+                    Card Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="1234 5678 9012 3456"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      border: '2px solid #e2e8f0',
+                      fontSize: '1rem',
+                      marginBottom: '16px'
+                    }}
+                  />
+                  
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '0.9rem',
+                        color: '#475569',
+                        marginBottom: '8px',
+                        fontWeight: 500
+                      }}>
+                        Expiry
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="MM/YY"
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: '8px',
+                          border: '2px solid #e2e8f0',
+                          fontSize: '1rem'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '0.9rem',
+                        color: '#475569',
+                        marginBottom: '8px',
+                        fontWeight: 500
+                      }}>
+                        CVV
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="123"
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          borderRadius: '8px',
+                          border: '2px solid #e2e8f0',
+                          fontSize: '1rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button onClick={() => setShowPayment(false)} style={{
+                    background: 'white',
+                    color: '#64748b',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '16px 24px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    Back
+                  </button>
+                  
+                  <button onClick={handlePaymentSubmit} style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    flex: 1,
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+                  }}>
+                    Pay ${estimatedCopay}.00
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          if (isPaid) {
+            return (
+              <div className="fade-in" style={{
+                textAlign: 'center',
+                padding: '40px 0'
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  background: '#d1fae5',
+                  margin: '0 auto 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'checkmark 0.5s ease-out'
+                }}>
+                  <CheckCircle size={40} color="#059669" />
+                </div>
+                <h3 style={{
+                  fontSize: '1.5rem',
+                  color: '#1e293b',
+                  marginBottom: '8px'
+                }}>
+                  Payment Successful!
+                </h3>
+                <p style={{ color: '#64748b', margin: 0 }}>
+                  Continuing to next step...
+                </p>
+              </div>
+            );
+          }
+
+          if (paymentChoice === 'pay-later' && !showPayment) {
+            return (
+              <div className="fade-in" style={{
+                textAlign: 'center',
+                padding: '40px 0'
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '50%',
+                  background: '#e0f2fe',
+                  margin: '0 auto 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'checkmark 0.5s ease-out'
+                }}>
+                  <CheckCircle size={40} color="#0284c7" />
+                </div>
+                <h3 style={{
+                  fontSize: '1.5rem',
+                  color: '#1e293b',
+                  marginBottom: '8px'
+                }}>
+                  No Problem!
+                </h3>
+                <p style={{ color: '#64748b', margin: 0 }}>
+                  You can pay at your appointment...
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '12px'
+              }}>
+                Your Estimated Co-pay
+              </h2>
+              
+              <p style={{
+                color: '#64748b',
+                fontSize: '1rem',
+                marginBottom: '32px',
+                lineHeight: 1.6
+              }}>
+                Based on your insurance, you have an estimated co-pay for this visit.
+              </p>
+
+              <div style={{
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                borderRadius: '16px',
+                padding: '32px',
+                marginBottom: '24px',
+                textAlign: 'center',
+                border: '2px solid #bfdbfe'
+              }}>
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: '#1e40af',
+                  marginBottom: '8px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  fontWeight: 600
+                }}>
+                  Estimated Co-pay Amount
+                </div>
+                <div style={{
+                  fontSize: '4rem',
+                  fontWeight: 700,
+                  color: '#1e293b',
+                  fontFamily: '"Fraunces", serif',
+                  marginBottom: '8px'
+                }}>
+                  ${estimatedCopay}.00
+                </div>
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: '#64748b',
+                  fontStyle: 'italic'
+                }}>
+                  *Final amount may vary based on services provided
+                </div>
+              </div>
+
+              <div style={{
+                background: '#f0fdfa',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '24px',
+                borderLeft: '4px solid #14b8a6'
+              }}>
+                <h3 style={{
+                  fontSize: '1rem',
+                  color: '#0f766e',
+                  marginBottom: '12px',
+                  fontWeight: 600
+                }}>
+                  💳 Pay now and enjoy these benefits:
+                </h3>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  color: '#134e4a'
+                }}>
+                  <li style={{ marginBottom: '8px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>✓</span>
+                    Skip the payment line at check-in
+                  </li>
+                  <li style={{ marginBottom: '8px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>✓</span>
+                    Get to your appointment faster
+                  </li>
+                  <li style={{ paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 0 }}>✓</span>
+                    One less thing to worry about on visit day
+                  </li>
+                </ul>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                marginBottom: '16px'
+              }}>
+                <button
+                  onClick={() => handleChoice('pay-now')}
+                  disabled={paymentChoice !== null}
+                  style={{
+                    background: paymentChoice === 'pay-now' 
+                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                      : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '18px 32px',
+                    fontSize: '1.05rem',
+                    fontWeight: 600,
+                    cursor: paymentChoice === null ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+                    opacity: paymentChoice === null ? 1 : (paymentChoice === 'pay-now' ? 1 : 0.5)
+                  }}
+                >
+                  {paymentChoice === 'pay-now' ? '✓ ' : ''}Pay Now (${estimatedCopay}.00)
+                </button>
+
+                <button
+                  onClick={() => handleChoice('pay-later')}
+                  disabled={paymentChoice !== null}
+                  style={{
+                    background: paymentChoice === 'pay-later' ? '#f1f5f9' : 'white',
+                    color: '#475569',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '18px 32px',
+                    fontSize: '1.05rem',
+                    fontWeight: 600,
+                    cursor: paymentChoice === null ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease',
+                    opacity: paymentChoice === null ? 1 : (paymentChoice === 'pay-later' ? 1 : 0.5)
+                  }}
+                >
+                  {paymentChoice === 'pay-later' ? '✓ ' : ''}Pay Later at Appointment
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={onBack} style={{
+                  background: 'white',
+                  color: '#94a3b8',
+                  border: 'none',
+                  padding: '12px',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}>
+                  ← Back
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        function DetailsStep({ formData, setFormData, onNext, onBack }) {
+          return (
+            <div className="fade-in">
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '1.8rem',
+                color: '#1e293b',
+                marginBottom: '24px'
+              }}>
+                Confirm Patient & Guardian Details
+              </h2>
+
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{
+                  fontSize: '1.1rem',
+                  color: '#475569',
+                  marginBottom: '16px',
+                  fontWeight: 600
+                }}>
+                  Patient Information
+                </h3>
+                <InfoField label="Child's Name" value={formData.child.name} editable />
+                <InfoField label="Date of Birth" value={formData.child.dob} editable />
+                <InfoField label="Known Allergies" value={formData.child.allergies} editable />
+              </div>
+
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{
+                  fontSize: '1.1rem',
+                  color: '#475569',
+                  marginBottom: '16px',
+                  fontWeight: 600
+                }}>
+                  Guardian Contact
+                </h3>
+                <InfoField label="Name" value={formData.guardian.name} editable />
+                <InfoField label="Phone" value={formData.guardian.phone} editable />
+                <InfoField label="Email" value={formData.guardian.email} editable />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={onBack} style={{
+                  background: 'white',
+                  color: '#64748b',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px 24px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}>
+                  Back
+                </button>
+                
+                <button onClick={onNext} style={{
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px 32px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+                }}>
+                  Confirm Details <ArrowRight size={20} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        function CompleteStep({ formData, requiresCopay }) {
+          return (
+            <div className="fade-in" style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                margin: '0 auto 32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 24px rgba(16,185,129,0.3)',
+                animation: 'checkmark 0.6s ease-out'
+              }}>
+                <CheckCircle size={60} color="white" />
+              </div>
+
+              <h2 style={{
+                fontFamily: '"Fraunces", serif',
+                fontSize: '2rem',
+                color: '#1e293b',
+                marginBottom: '16px'
+              }}>
+                All Set!
+              </h2>
+
+              <p style={{
+                color: '#64748b',
+                fontSize: '1.1rem',
+                marginBottom: '32px',
+                lineHeight: 1.6
+              }}>
+                Thank you for completing your booking.
+                <br />
+                We'll see {formData.child.name} soon!
+              </p>
+
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px',
+                textAlign: 'left'
+              }}>
+                <h3 style={{
+                  fontSize: '1.1rem',
+                  color: '#1e293b',
+                  marginBottom: '16px',
+                  fontWeight: 600
+                }}>
+                  What's Next?
+                </h3>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  color: '#64748b'
+                }}>
+                  <li style={{ marginBottom: '12px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 0,
+                      color: '#10b981',
+                      fontWeight: 'bold'
+                    }}>✓</span>
+                    Arrive 10 minutes before your appointment
+                  </li>
+                  <li style={{ marginBottom: '12px', paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 0,
+                      color: '#10b981',
+                      fontWeight: 'bold'
+                    }}>✓</span>
+                    {requiresCopay ? 'Your co-pay has been processed' : 'Bring payment for co-pay ($25.00)'}
+                  </li>
+                  <li style={{ paddingLeft: '24px', position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 0,
+                      color: '#10b981',
+                      fontWeight: 'bold'
+                    }}>✓</span>
+                    Check in at the front desk when you arrive
+                  </li>
+                </ul>
+              </div>
+
+              <div style={{
+                background: '#eff6ff',
+                borderRadius: '12px',
+                padding: '16px',
+                borderLeft: '4px solid #3b82f6'
+              }}>
+                <p style={{ margin: 0, color: '#1e40af', fontSize: '0.95rem' }}>
+                  📅 <strong>Appointment:</strong> {formData.appointment.date} at {formData.appointment.time}
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        function InfoField({ label, value, editable }) {
+          return (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 0',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div style={{
+                fontSize: '0.85rem',
+                color: '#94a3b8',
+                marginBottom: '4px',
+                fontWeight: 500
+              }}>
+                {label}
+              </div>
+              <div style={{
+                fontSize: '1rem',
+                color: '#1e293b',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span>{value}</span>
+                {editable && (
+                  <button style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3b82f6',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}>
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<PediatricCheckIn />);
+    </script>
+</body>
+</html>
